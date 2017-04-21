@@ -1,24 +1,18 @@
 /*The roller coaster problem
 
-This problem is from Andrews’s Concurrent Programming [1], but he attributes it
-to J. S. Herman’s Master’s thesis. Suppose there are n passenger threads and a
-car thread. The passengers repeatedly wait to take rides in the car, which can
-hold C passengers, where C < n.
-
-The car can go around the tracks only when it is full. Here are some additional
-details:
+O que o nosso programa deve satisfazer:
 
 • Passengers should invoke board and unboard.
 • The car should invoke load, run and unload.
 • Passengers cannot board until the car has invoked load
 • The car cannot depart until C passengers have boarded.
 • Passengers cannot unboard until the car has invoked unload.
-
-Puzzle:
-Write code for the passengers and car that enforces these constraints.*/
-/*============================================================================*/
-
-/*5.8.1 Roller Coaster hint*/
+• Only one car can be boarding at a time.
+• Multiple cars can be on the track concurrently.
+• Since cars can’t pass each other, they have to unload in the same order they
+boarded.
+• All the threads from one carload must disembark before any of the threads from
+subsequent carloads.*/
 
 #include <pthread.h>
 #include <semaphore.h>
@@ -27,81 +21,93 @@ Write code for the passengers and car that enforces these constraints.*/
 #include <unistd.h>
 #include <ncurses.h>
 
-#define N_PASSENGERS 8;
+#define N_PASSENGERS 8;		//Numero de passageiros
+#define N_P_CAR 4; 				//Numero de passageiros por carrinho
+#define N_CAR 2;					//Numero de carrinhos
 
-sem_t mutex;
-sem_t mutex2;
-sem_t boardQueue;
-sem_t unboardQueue;
-sem_t allAboard;
-sem_t allAshore;
+sem_t mutex;									//Semaforo para controle de mutex
+sem_t mutex2;									//Semaforo para controle de mutex
+sem_t filaBoard;							//Semaforo da fila de embarque
+sem_t filaUnboard;						//Semaforo da fila de desembarque
+sem_t todosDentro;						//Semaforo que indica se o carrinho lotou
+sem_t todosFora;							//Semaforo que indica se todos sairam do carrinho
+sem_t loadingArea[N_CAR];			//Controle de qual carrinho está embarcando
+sem_t unloadingArea[N_CAR];		//Controle de qual carrinho está desembarcando
 
-int boarders = 0;
-int unboarders = 0;
+volatile int boarders = 0;
+volatile int unboarders = 0;
 
-/*mutex protects passengers, which counts the number of passengers that have
-invoked boardCar. Passengers wait on boardQueue before boarding and unboardQueue
-before unboarding. allAboard indicates that the car is full.*/
-/*============================================================================*/
-
-/*5.8.2 Roller Coaster solution
-Here is my code for the car thread:
-
-Roller Coaster solution (car) */
+int next(int id_atual){		//Retorna o id do próximo carrinho em relaçao ao atual
+	return (id_atual + 1)%N_CAR;
+}
 
 void* carThread(void* v){
+	/*---------------Eu mudei pro caso de N carrinhos----------------
 	load(); /* enche o carrinho com C passageiros */
-	
-	sem_post(&boardQueue);
-	sem_wait(&allAboard);
-//	boardQueue.signal ( C );
-//	allAboard.wait ();
 
-	run(); /* coloca carrinho em movimento */
+	//sem_post(&filaBoard);
+	//sem_wait(&todosDentro);
+//	filaBoard.signal ( C );
+//	todosDentro.wait ();
 
-	unload (); /* desembarque de passageiros */
-	
-	sem_post(&unboardQueue);
-	sem_post(&allAshore);
-//	unboardQueue.signal ( C );
-//	allAshore.wait ();
+	//run(); /* coloca carrinho em movimento */
+
+	//unload (); /* desembarque de passageiros */
+
+	//sem_post(&filaUnboard);
+	//sem_post(&todosFora);
+//	filaUnboard.signal ( C );
+//	todosFora.wait ();
+/*--------------------------------------------------------------------------*/
+int i = *(int *) v;
+
+sem_wait(&loadingArea[i]);						//Espera o seu carrinho chegar na zona
+																			//de embarque
+load ();															//Executa o embarque
+filaBoard.signal (N_P_CAR);						//Libera a N_P_CAR posiçoes na filaBoard
+sem_wait(&todosDentro);								//Espera todos entrarem no carrinho
+loadingArea[next (i)].signal ();			//Sinaliza para o proximo carrinho
+
+run ();																//Realiza corrida
+
+sem_wait(unloadingArea[i]);						//Espera poder realizar o desembarque
+unload ();														//Desembarca
+filaUnboard.signal (N_P_CAR);					//Libera a N_P_CAR posiçoes na filaUnboard
+sem_wait(&todosFora);								  //Espera todos descerem
+unloadingArea[next (i)].signal ();		//Sinaliza para o proximo carrinho
 }
-/*When the car arrives, it signals C passengers, then waits for the last one to
-signal allAboard. After it departs, it allows C passengers to disembark,
-then waits for allAshore.
 
-Roller Coaster solution (passenger) */
 void* passengerThread(void* v){
-	sem_wait(&boardQueue);
-//	boardQueue.wait ();
+	sem_wait(&filaBoard);
+//	filaBoard.wait ();
 	board (); /* embarca no carrinho */
 
 	sem_wait(&mutex);
 //	mutex.wait ();
 	boarders += 1;
-	
-	if (boarders == C){
-		sem_post(&allAboard); /* indica que tem C passageiros a bordo */ 
-//	  	allAboard . signal ();
+
+	if (boarders == N_P_CAR){
+		sem_post(&todosDentro); /* indica que tem C passageiros a bordo */
+//	  	todosDentro . signal ();
 	  	boarders = 0;
 	}
-	
+
 	sem_post(&mutex);
 //	mutex.signal ();
 
-	sem_wait(&unboardQueue);
-//	unboardQueue.wait ();
+	sem_wait(&filaUnboard);
+//	filaUnboard.wait ();
 	unboard (); /* desembarca passageiro */
 
 	sem_wait(&mutex2);
 //	mutex2.wait ();
 	unboarders += 1;
-	if (unboarders == C){
-		sem_post(&allAshore);
-//	  	allAshore.signal ();
+	if (unboarders == N_P_CAR){
+		sem_post(&todosFora);
+//	  	todosFora.signal ();
 		unboarders = 0;
 	}
-	
+
 	sem_post(&mutex2);
 //	mutex2.signal ();
 }
@@ -110,87 +116,39 @@ stop before leaving. The last passenger to board signals the car and resets the
 passenger counter.*/
 
 int main(){
-	pthread_t passengers[N_PASSENGERS], car;
+	pthread_t passengers[N_PASSENGERS], car[N_CAR];
 	int i, id[N_PASSENGERS];
-	
+
+	for (i = 0; i < N_CAR; i++) {
+			if (i == 0){
+				sem_init(&loadingArea[i], 0, 1);		//Apenas o carrinho 1 pode embarcar
+				sem_init(&unloadingArea[i], 0, 1);	//e desembarcar
+			}
+			sem_init(&loadingArea[i], 0, 0);
+			sem_init(&unloadingArea[i], 0, 0);
+	}
+
 	sem_init(&mutex, 0, 1);
 	sem_init(&mutex2, 0, 1);
-	sem_init(&boardQueue, 0, 4); // 4 passageiros num carrinho
-	sem_init(&unboardQueue, 0, 4);
-	sem_init(&allAboard, 0, 1);
-	sem_init(&allAshore, 0, 1);
-	
+	sem_init(&filaBoard, 0, N_P_CAR); // 4 passageiros num carrinho
+	sem_init(&filaUnboard, 0, N_P_CAR);
+	sem_init(&todosDentro, 0, 1);
+	sem_init(&todosFora, 0, 1);
+
 	for(i = 0; i < N_PASSENGERS; i++){
 		id[i] = i;
 		pthread_create(&passengers[i], NULL, passengerThread, (void*) &id[i]);
 	}
-	
-	pthread_create(&car, NULL, carThread, NULL);
-	
+
+	for(i=0; i < N_CAR; i++){
+		id[i] = i;
+		pthread_create(&car[i], NULL, carThread, (void*) &id[i]);
+	}
 	for(i = 0; i < N_PASSENGERS; i++)
 		pthread_join(passenger[i], NULL);
-	
+
+	/*TEM QUE DAR JOIN PRA THREAD DE CAR? (EU TO NO CAPS PRA CHAMAR ATENÇÃO SÓ
+    ME DESCULPA)*/
+
 	return 0;
 }
-
-/*============================================================================*/
-
-/*5.8.3 Multi-car Roller Coaster problem
-This solution does not generalize to the case where there is more than one car.
-In order to do that, we have to satisfy some additional constraints:
-• Only one car can be boarding at a time.
-• Multiple cars can be on the track concurrently.
-• Since cars can’t pass each other, they have to unload in the same order they
-boarded.
-• All the threads from one carload must disembark before any of the threads from
- subsequent carloads.
-
- Puzzle:
- modify the previous solution to handle the  additional constraints. You can
- assume that there are m cars, and that each car has a local variable named i
- that contains an identifier between 0 and m − 1.*/
-
-/*============================================================================*/
-
-/* 5.8.4 Multi-car Roller Coaster hint I used two lists of semaphores to keep
-the cars in order. One represents the loading area and one represents the
-unloading area. Each list contains one semaphore for each car. At any time, only
-one semaphore in each list is unlocked, so that enforces the order threads can
-load and unload. Initially, only the semaphores for Car 0 are unlocked. As each
-car enters the loading (or unloading) it waits on its own semaphore; as it
-leaves it signals the next car in line.
-
-Multi-car Roller Coaster hint */
-loadingArea = [ Semaphore (0) for i in range ( m )];
-loadingArea[1].signal ();
-unloadingArea = [ Semaphore (0) for i in range ( m )];
-unloadingArea[1].signal ();
-
-/*The function next computes the identifier of the next car in the sequence
-(wrapping around from m − 1 to 0):
-
-Implementation of next*/
-
-def next ( i ):
-  return ( i + 1) % m
-
-/*============================================================================*/
-
-/*5.8.5 Multi-car Roller Coaster solution Here is the modified code for the
-cars:
-Multi-car Roller Coaster solution (car)*/
-loadingArea[i].wait ();
-load ();
-boardQueue.signal ( C );
-allAboard.wait ();
-loadingArea[next ( i )].signal ();
-
-run ();
-
-unloadingArea [ i ].wait();
-unload ();
-unboardQueue.signal ( C );
-allAshore.wait ();
-unloadingArea[ next ( i )].signal ();
-
-/*The code for the passengers is unchanged.*/
