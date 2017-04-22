@@ -34,18 +34,35 @@ sem_t unloading_area[N_CARS];
 int boarders;
 int unboarders;
 
+// Essa funcao representa o carrinho correndo
+// (em um problema real poderia fazer algum processamento aqui)
+void run()
+{
+	printf("UHUUUUUUUUUUUU\n\n");
+}
+
+// Essa funcao representa o carrinho pronto pros passageiros entrarem
+// (em um problema real poderia fazer algum processamento aqui)
+void load()
+{
+}
+
+// Essa funcao representa o carrinho pronto pros passageiros sairem
+// (em um problema real poderia fazer algum processamento aqui)
+void unload()
+{
+}
+
 // Essa funcao representa o passageiro entrando no carrinho
 // (em um problema real poderia fazer algum processamento aqui)
 void board()
 {
-	printf("b\n");
 }
 
 // Essa funcao representa o passageiro saindo do carrinho
 // (em um problema real poderia fazer algum processamento aqui)
 void unboard()
 {
-	printf("ub\n");
 }
 
 //Retorna o id do próximo carrinho em relaçao ao atual
@@ -56,21 +73,57 @@ int next(int id_atual)
 
 void* car_thread(void* v)
 {
-	int i = *(int *) v;
+	int id = *(int *) v;
 
-	printf("car_thread %d\n", i);
+	printf("(c1) car_thread %d waiting for loading_area\n", id);
+	sem_wait(&loading_area[id]);
+
+	printf("(c2) car_thread %d loading\n", id);
+	load();
+
+	// Fazendo os passageiros entrarem
+	for (int i = 0; i < N_P_CAR; i++)
+	{
+		sem_post(&board_queue);
+	}
+
+	// Todo mundo entrou?
+	sem_wait(&all_aboard);
+
+	// Pista pronta pro proximo carrinho
+	sem_post(&loading_area[next(id)]);
+
+	// UHUUU
+	run();
+
+	sem_wait(&unloading_area[id]);
+
+	printf("(c3) car_thread %d unloading\n", id);
+	unload();
+
+	// Fazendo os passageiros sairem
+	for (int i = 0; i < N_P_CAR; i++)
+	{
+		sem_post(&unboard_queue);
+	}
+
+	// Todo mundo saiu?
+	sem_wait(&all_ashore);
+
+	// Pista pronta pro proximo carrinho
+	sem_post(&unloading_area[next(id)]);
 
 	return NULL;
 }
 
 void* passenger_thread(void* v)
 {
-	int i = *(int *) v;
+	int id = *(int *) v;
 
-	printf("(p1) pass_thread %d waiting on board_queue\n", i);
+	printf("(p1) pass_thread %d waiting on board_queue\n", id);
 	sem_wait(&board_queue);
 
-	printf("(p2) pass_thread %d boarding\n", i);
+	printf("(p2) pass_thread %d boarding\n", id);
 	board();
 
 	//		Prende o mutex_1 para verificar se este eh o ultimo passageiro
@@ -87,11 +140,9 @@ void* passenger_thread(void* v)
 	// solta o mutex
 	sem_post(&mutex_1);
 
-	
-	printf("(p3) pass_thread %d waiting on unboard_queue\n", i);
 	sem_wait(&unboard_queue);
 
-	printf("(p4) pass_thread %d unboarding\n", i);
+	printf("(p3) pass_thread %d unboarding\n", id);
 	unboard();
 
 	//		Prende o mutex_2 para verificar se este eh o ultimo passageiro
