@@ -2,10 +2,9 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#define SCREEN_SIZE 134
 #define L1 9
-#define EMB 85
-#define DES 36
+#define EMB getmaxx(stdscr)/2+10
+#define DES getmaxx(stdscr)/2-30
 
 struct Carrinho{
    int id;
@@ -19,6 +18,7 @@ void printTitulo();
 int main(){
   int i;
   struct Carrinho car1,car2;
+
   car1.passageiros = 5;
   car1.id = 1;
   car2.passageiros = 6;
@@ -34,10 +34,13 @@ int main(){
   printRail();
   refresh();
   sleep(1);
-  for (i=0;i<50;i++){
+  for (i=0;i<getmaxx(stdscr)/2;i++){
     printRail();
     printCar(EMB+i,car1);
-    printCar(DES+i,car2);
+    if (i<40)
+      printCar(DES+i,car2);
+    else
+      printCar(EMB,car2);
     //sleep(1);
     usleep(100000);
 
@@ -51,14 +54,14 @@ int main(){
 void printTitulo(){
   int i;
   move(0,0);
-  for (i = 0; i < SCREEN_SIZE; i++){
+  for (i = 0; i < getmaxx(stdscr); i++){
     printw("=");
   }
-  move(2,60);  //Aqui estamos movendo o cursor para a linha 2 coluna 1.
+  move(2,getmaxx(stdscr)/2-5);  //Aqui estamos movendo o cursor para a linha 2 coluna 1.
   printw("MONTANHA RUSSA");
 
   move(4,0);
-  for (i = 0; i < SCREEN_SIZE; i++){
+  for (i = 0; i < getmaxx(stdscr); i++){
     printw("=");
   }
   move(6,DES);
@@ -71,19 +74,19 @@ void printRail(){
   int i;
 
   move(L1-1,0);
-  for (i = 0; i < SCREEN_SIZE; i++){
+  for (i = 0; i < getmaxx(stdscr); i++){
     printw(" ");
   }
   move(L1,0);
-  for (i = 0; i < SCREEN_SIZE; i++){
+  for (i = 0; i < getmaxx(stdscr); i++){
     printw("-");
   }
   move(L1+1,0);
-  for (i = 0; i < SCREEN_SIZE; i++){
+  for (i = 0; i < getmaxx(stdscr); i++){
     printw("-");
   }
   move(L1+2,0);
-  for (i = 0; i < SCREEN_SIZE; i++){
+  for (i = 0; i < getmaxx(stdscr); i++){
     printw(" ");
   }
   move(0,0);
