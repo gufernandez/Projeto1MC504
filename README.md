@@ -51,5 +51,5 @@ Basicamente,você está no branch *Eu* e mudou certo arquivo que precisa ser atu
 
 ##Tarefas:
 - [X] Copiar README do Chamys
-- [ ] Fazer base do programa
+- [X] Fazer base do programa (oh yeah)
 - [ ] Fazer animação
