@@ -27,7 +27,7 @@ subsequent carloads.*/
 #define DES2 getmaxx(stdscr)/2-6
 //Migué para teste by:Helu
 
-#define N_PASSENGERS 20	// Numero de passageiros
+#define N_PASSENGERS 15	// Numero de passageiros
 #define N_P_CAR 5				// Numero de passageiros por carrinho
 #define N_CARS 3				// Numero de carrinhos
 #define L_CARRO (N_P_CAR+N_P_CAR%2)
@@ -54,7 +54,7 @@ int unboarders;
 //Funcao que desenha as threads na fila de espera da montanha russa
 void printFila(int id){
   sem_wait(&sem_write); //Trocar mutex_3 pelo nome do semaforo que esta sendo utilizado para desenhar a animacao
-  move(L1-1, EMB2+(2*id)); //L1 é a linha em que se encontra o trilho. É importante definir para cada trilho.
+  move(L1-2, EMB2+(3*id)); //L1 é a linha em que se encontra o trilho. É importante definir para cada trilho.
                           //EMB eh a coluna base onde se encontra a primeira letra do terminal de EMBARQUE
   printw("%d", id);
   usleep(TEMPO);
@@ -67,8 +67,8 @@ void printFila(int id){
 void board2(int id)
 {
   sem_wait(&sem_write);
-  move(L1-1, EMB2+(2*id));
-  printw(" ");
+  move(L1-2, EMB2+(3*id));
+  printw("  ");
   usleep(TEMPO);
   move(0,0);
   refresh();
@@ -79,7 +79,7 @@ void board2(int id)
 void unboard2(int id)
 {
   sem_wait(&sem_write);
-  move(L2-1, DES2+(2*id)); //DES eh a coluna base onde se encontra a primeira letra do terminal de DESEMBARQUE
+  move(L2-2, DES2+(3*id)); //DES eh a coluna base onde se encontra a primeira letra do terminal de DESEMBARQUE
   printw("%d", id);
   usleep(TEMPO);
   move(0,0);
@@ -90,8 +90,8 @@ void unboard2(int id)
 //Funcao que faz as threads sairem do terminal de DESEMBARQUE
 void leave(int id){
   sem_wait(&sem_write);
-  move(L2-1, DES2+(2*id));
-  printw(" ");
+  move(L2-2, DES2+(3*id));
+  printw("  ");
   usleep(TEMPO);
   move(0,0);
   refresh();
