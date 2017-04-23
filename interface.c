@@ -85,8 +85,7 @@ void printCar(int linha, int coluna, int largura, carrinho *car){
   int j = 0;
   int curX = coluna+1;
 
-  printw("%d", car->passageiros[0]);
-  while(car->passageiros[i] != -1){
+  while(car->passageiros[i++] >= 0){
     passageiros++;
   }
 
@@ -146,5 +145,4 @@ void printCar(int linha, int coluna, int largura, carrinho *car){
       printw("|");
 
   move(0,0);
-
 }

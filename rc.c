@@ -20,9 +20,9 @@ subsequent carloads.*/
 #include <unistd.h>
 #include "interface.h"
 
-#define N_PASSENGERS 10	// Numero de passageiros
-#define N_P_CAR 4				// Numero de passageiros por carrinho
-#define N_CARS 2				// Numero de carrinhos
+#define N_PASSENGERS 20	// Numero de passageiros
+#define N_P_CAR 5				// Numero de passageiros por carrinho
+#define N_CARS 3				// Numero de carrinhos
 #define L_CARRO (N_P_CAR+N_P_CAR%2)
 #define P_EMBARQUE EMB+L_CARRO
 #define P_DESEMBARQUE DES+L_CARRO
@@ -37,6 +37,7 @@ sem_t all_ashore;
 sem_t loading_area[N_CARS];
 sem_t unloading_area[N_CARS];
 sem_t sem_write;
+sem_t sem_line;
 
 carrinho car[N_CARS];
 
@@ -121,6 +122,7 @@ void board(int id)
 	int carro = boardCar();
 	int seat = 0;
 
+	sem_wait(&sem_line);
 	if (carro<0)
 		printw("Nenhum carro embarcando");
 	else{
@@ -131,12 +133,13 @@ void board(int id)
 			}
 		}
 	}
+	sem_post(&sem_line);
 
 	sem_wait(&sem_write);
 	printRail();
 	printCar(LE, P_EMBARQUE+L_CARRO, L_CARRO, &car[carro]);
 	refresh();
-	sleep(5); //usleep(TEMPO);
+	usleep(TEMPO);
 	sem_post(&sem_write);
 }
 
@@ -146,7 +149,7 @@ void unboard(int id)
 {
 	int carro = unboardCar();
 	int out = 0;
-
+	sem_wait(&sem_line);
 	if (carro<0)
 		printw("Nenhum carro embarcando");
 	else{
@@ -157,7 +160,7 @@ void unboard(int id)
 			}
 		}
 	}
-
+	sem_post(&sem_line);
 	sem_wait(&sem_write);
 	printRail();
 	printCar(LD, P_DESEMBARQUE+L_CARRO, L_CARRO, &car[carro]);
@@ -288,6 +291,8 @@ int main()
 	// Inicializando semaforo de escrita
 	sem_init(&sem_write,0,1);
 
+	sem_init(&sem_line,0,1);
+
 	// Inicializando o numero de passageiros entrando e saindo
 	boarders = 0;
 	unboarders = 0;
@@ -311,8 +316,9 @@ int main()
 	// Inicializando os structures de car
 	for (i=0; i<N_CARS;i++){
 		car[i].passageiros = malloc ((N_P_CAR+1) * sizeof(int));
-		for (int j=0;j<N_P_CAR+1;j++)
+		for (int j=0;j<N_P_CAR;j++)
 			car[i].passageiros[j] = -1;
+		car[i].passageiros[N_P_CAR] = -2;
 		car[i].boarding = 0;
 		car[i].unboarding = 0;
 	}

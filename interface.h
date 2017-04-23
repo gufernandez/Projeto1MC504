@@ -7,7 +7,6 @@
 #define DES getmaxx(stdscr)/2-6
 
 struct Carrinho{
-   int id;
    int *passageiros;
    int boarding;
    int unboarding;
