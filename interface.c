@@ -1,150 +1,148 @@
-#include <curses.h> //Incluiremos a biblioteca ao nosso sistema
+#include <curses.h>
 #include <stdio.h>
-#include <unistd.h>
+#include "interface.h"
+/*Índice da curses:
+    y,x: coordenadas de uma posição na tela (y -> linha e x -> coluna)
+    getmaxx: pega o maior número de x, ou seja, quantas colunas há na tela (largura), o mesmo vale pra y
+    initscr: começa uma tela da curses (a tela stdscr)
+    refresh: aplica as mudanças na tela
+    printw: printf da curses
+    getcurx: pega a posição x atual do cursor, o mesmo vale pra y
+    move(y,x): move o cursor para a posição y,x
+*/
 
-#define L1 9
-#define EMB getmaxx(stdscr)/2+10
-#define DES getmaxx(stdscr)/2-30
+#define LE 9
+#define LD 18
+#define EMB getmaxx(stdscr)/2-5
+#define DES getmaxx(stdscr)/2-6
 
-struct Carrinho{
-   int id;
-   int passageiros;
-};
-
-void printCar(int coluna, struct Carrinho carrinho);
-void printRail();
-void printTitulo();
-
-int main(){
-  int i;
-  struct Carrinho car1,car2;
-
-  car1.passageiros = 5;
-  car1.id = 1;
-  car2.passageiros = 6;
-  car2.id = 2;
-
-  noecho();
-  curs_set(0);
-
-  initscr();   /*Esta função  inicializa a ncurses. Para todos os programas
-                 devemos sempre inicializar a ncurses e depois finalizar, como
-                veremos adiante. */
-  printTitulo();
-  printRail();
-  refresh();
-  sleep(1);
-  for (i=0;i<getmaxx(stdscr)/2;i++){
-    printRail();
-    printCar(EMB+i,car1);
-    if (i<40)
-      printCar(DES+i,car2);
-    else
-      printCar(EMB,car2);
-    //sleep(1);
-    usleep(100000);
-
-    refresh();    //Atualiza a tela
-  }
-  getch();      //Fica esperando que o usuário aperte alguma tecla
-
-  endwin();
-  return 0;
-}
 void printTitulo(){
   int i;
+
   move(0,0);
   for (i = 0; i < getmaxx(stdscr); i++){
     printw("=");
   }
-  move(2,getmaxx(stdscr)/2-5);  //Aqui estamos movendo o cursor para a linha 2 coluna 1.
+  move(2,getmaxx(stdscr)/2-7);  //Aqui estamos movendo o cursor para a linha 2 coluna 1.
   printw("MONTANHA RUSSA");
 
   move(4,0);
   for (i = 0; i < getmaxx(stdscr); i++){
     printw("=");
   }
-  move(6,DES);
+  move(LD-3,DES);
   printw("*DESEMBARQUE*");
-  move(6,EMB);
+  move(LE-3,EMB);
   printw("*EMBARQUE*");
   move(0,0);
+
 }
+
 void printRail(){
   int i;
 
-  move(L1-1,0);
+  /*LE*/
+  move(LE-1,0);
   for (i = 0; i < getmaxx(stdscr); i++){
     printw(" ");
   }
-  move(L1,0);
+  move(LE,0);
   for (i = 0; i < getmaxx(stdscr); i++){
     printw("-");
   }
-  move(L1+1,0);
+  move(LE+1,0);
   for (i = 0; i < getmaxx(stdscr); i++){
     printw("-");
   }
-  move(L1+2,0);
+  move(LE+2,0);
+  for (i = 0; i < getmaxx(stdscr); i++){
+    printw(" ");
+  }
+  /*LD*/
+  move(LD-1,0);
+  for (i = 0; i < getmaxx(stdscr); i++){
+    printw(" ");
+  }
+  move(LD,0);
+  for (i = 0; i < getmaxx(stdscr); i++){
+    printw("-");
+  }
+  move(LD+1,0);
+  for (i = 0; i < getmaxx(stdscr); i++){
+    printw("-");
+  }
+  move(LD+2,0);
   for (i = 0; i < getmaxx(stdscr); i++){
     printw(" ");
   }
   move(0,0);
-}
-void printCar(int coluna, struct Carrinho carrinho){
-  int largura = carrinho.passageiros + carrinho.passageiros%2;
-  int i;
 
-  move(L1-1, coluna);
+}
+
+void printCar(int linha, int coluna, int largura, carrinho *car){
+  int i = 0;
+  int passageiros = 0;
+  int j = 0;
+  int curX = coluna+1;
+
+  while(car->passageiros[i++] >= 0){
+    passageiros++;
+  }
+
+  move(linha-1, --curX);
   /*-----------FRENTE-----------*/
-  if (getcury(stdscr) == L1-1)
+  if ((getcury(stdscr) == linha-1) && (curX >= 0))
     printw(" ");
 
   for (i=0; i<largura;i++){
     //printw("%d %d",getcury(stdscr), getcurx(stdscr));
-    if ((getcury(stdscr) == L1-1))
+    move(linha-1, --curX);
+    if ((getcury(stdscr) == linha-1) && (curX >= 0))
       printw("_");
   }
+  move(linha-1,--curX);
+  if ((getcury(stdscr) == linha-1) && (curX >= 0))
+    printw(" ");
 
-  if ((getcury(stdscr) == L1-1))
-    printw("%d", carrinho.id);
-
-  move(L1, coluna);
+  curX = coluna+1;
+  move(linha, --curX);
   /*-----------Fileira 1-----------*/
-  if (getcury(stdscr) == L1)
-    printw("|");
+  if ((getcury(stdscr) == linha) && (curX >= 0))
+    printw(")");
 
   for (i=0; i<largura;i++){
-    if (getcury(stdscr) == L1){
-      if (i % 2 == 0){
-        printw("o");
+    move(linha,--curX);
+
+    if ((getcury(stdscr) == linha) && (curX >= 0)){
+      if ((i % 2 == 1) && (j<=passageiros) && (car->passageiros[j]>0)){
+        printw("%d", car->passageiros[j++]);
       }else
         printw(" ");
     }
   }
-
-  if (getcury(stdscr) == L1)
-    printw(")");
-
-  move(L1+1, coluna);
-  /*-----------Fileira 2-----------*/
-  if (getcury(stdscr) == L1+1)
+  move(linha,--curX);
+  if ((getcury(stdscr) == linha) && (curX >= 0))
     printw("|");
 
+  curX = coluna+1;
+  move(linha+1, --curX);
+  /*-----------Fileira 2-----------*/
+  if ((getcury(stdscr) == linha+1) && (curX >= 0))
+    printw(")");
+
   for (i=0; i<largura;i++){
-    if (getcury(stdscr) == L1+1){
-      if ((i == 0) && (carrinho.passageiros%2 == 1)){
-        printw(" ");
-      }
-      else if (i % 2 == 0){
-        printw("o");
+    move(linha+1,--curX);
+    if ((getcury(stdscr) == linha+1) && (curX >= 0)){
+      if ((i % 2 == 1) && (j<=passageiros) && (car->passageiros[j]>0)){
+        printw("%d",car->passageiros[j++]);
       }else
         printw("_");
     }
   }
 
-  if (getcury(stdscr) == L1+1)
-      printw(")");
+  move(linha+1,--curX);
+  if ((getcury(stdscr) == linha+1) && (curX >= 0))
+      printw("|");
 
   move(0,0);
 }

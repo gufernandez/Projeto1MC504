@@ -8,11 +8,14 @@ default: all
 
 all: executa
 
-executa: compila
-	./$(EXECUTABLE)
+executa: biblioteca compila
+	./rc
 
 compila:
-	$(CC) $(CFLAGS) $(SOURCES) -o $(EXECUTABLE)
+	gcc rc.c -o rc interface.o -lcurses -pthread
+
+biblioteca:
+	gcc -o interface.o -c interface.c
 
 clear:
-	$(RM) $(EXECUTABLE)
+	rm rc interface.o
