@@ -9,10 +9,10 @@ default: all
 all: executa
 
 executa: compila
-        ./$(EXECUTABLE)
+	./$(EXECUTABLE)
 
 compila:
-        $(CC) $(CFLAGS) $(SOURCES) -o $(EXECUTABLE)
+	$(CC) $(CFLAGS) $(SOURCES) -o $(EXECUTABLE)
 
 clear:
-        $(RM) $(EXECUTABLE)
+	$(RM) $(EXECUTABLE)
