@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-std=c11 -Wall -pthread
+CFLAGS=-std=c11 -Wall -pthread -lncurses
 SOURCES=rc.c
 EXECUTABLE=rc.x
 RM=rm -f
