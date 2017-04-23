@@ -1,6 +1,6 @@
 all: executa
 
-executa: compila
+executa: biblioteca compila
 	./rc
 
 compila:
