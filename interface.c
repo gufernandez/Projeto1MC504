@@ -81,8 +81,9 @@ void printRail(){
 
 void printCar(int linha, int coluna, int largura, carrinho *car){
   int i = 0;
-  int passageiros = 0;
   int j = 0;
+  int print;
+  int passageiros = 0;
   int curX = coluna+1;
   int max = getmaxx(stdscr);
 
@@ -126,14 +127,18 @@ void printCar(int linha, int coluna, int largura, carrinho *car){
   if ((curX <= max) && (curX >= 0))
     printw(")");
 
+  print = 1;
   for (i=0; i<largura;i++){
     move(linha,--curX);
 
     if ((curX <= max) && (curX >= 0)){
-      if ((i % 2 == 1) && (j<=passageiros) && (car->passageiros[j]>=0)){
+      if ((!print) && (j<=passageiros) && (car->passageiros[j]>=0)){
         printw("%d", car->passageiros[j++]);
-      }else
+        print = 2;
+      }else{
         printw(" ");
+        print--;
+      }
     }
   }
   move(linha,--curX);
@@ -150,13 +155,17 @@ void printCar(int linha, int coluna, int largura, carrinho *car){
   if ((curX <= max) && (curX >= 0))
     printw(")");
 
+  print = 1;
   for (i=0; i<largura;i++){
     move(linha+1,--curX);
     if ((curX <= max) && (curX >= 0)){
-      if ((i % 2 == 1) && (j<=passageiros) && (car->passageiros[j]>=0)){
+      if ((!print) && (j<=passageiros) && (car->passageiros[j]>=0)){
         printw("%d",car->passageiros[j++]);
-      }else
+        print = 2;
+      }else{
         printw("_");
+        print--;
+      }
     }
   }
 
