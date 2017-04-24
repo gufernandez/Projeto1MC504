@@ -30,7 +30,7 @@ subsequent carloads.*/
 #define N_PASSENGERS 20	// Numero de passageiros
 #define N_P_CAR 4				// Numero de passageiros por carrinho
 #define N_CARS 5				// Numero de carrinhos
-#define L_CARRO (N_P_CAR+N_P_CAR%2)
+#define L_CARRO (N_P_CAR+N_P_CAR%2)		//y = 1/5*x + 12/5
 #define P_EMBARQUE EMB+L_CARRO
 #define P_DESEMBARQUE DES+L_CARRO
 #define TEMPO 100000
@@ -69,7 +69,6 @@ void refreshAll()
 				sem_post(&sem_write);
 				usleep(TEMPO);
 			}
-			move(0,0);
 			refresh();
 			refreshers = 0;
 			return;
@@ -263,48 +262,51 @@ int next(int id_atual)
 
 void* car_thread(void* v)
 {
-	int id = *(int *) v;
+	while(1){
+		int id = *(int *) v;
 
-	sem_wait(&loading_area[id]);
+		sem_wait(&loading_area[id]);
 
-	load(id);
-	car[id].boarding = 1;
-	// Fazendo os passageiros entrarem
-	for (int i = 0; i < N_P_CAR; i++)
-	{
-		sem_post(&board_queue);
+		load(id);
+		car[id].boarding = 1;
+		// Fazendo os passageiros entrarem
+		for (int i = 0; i < N_P_CAR; i++)
+		{
+			sem_post(&board_queue);
+		}
+
+		// Todo mundo entrou?
+		sem_wait(&all_aboard);
+		car[id].boarding = 0;
+
+		// Pista pronta pro proximo carrinho
+		sem_post(&loading_area[next(id)]);
+
+		// UHUUU
+		run(id);
+
+		sem_wait(&unloading_area[id]);
+
+		//printf("(c3) car_thread %d unloading\n", id);
+		unload(id);
+		car[id].unboarding = 1;
+
+		// Fazendo os passageiros sairem
+		for (int i = 0; i < N_P_CAR; i++)
+		{
+			sem_post(&unboard_queue);
+		}
+
+		// Todo mundo saiu?
+		sem_wait(&all_ashore);
+		car[id].unboarding = 0;
+
+		// Pista pronta pro proximo carrinho
+		sem_post(&unloading_area[next(id)]);
+
+		transfer(id);
+
 	}
-
-	// Todo mundo entrou?
-	sem_wait(&all_aboard);
-	car[id].boarding = 0;
-
-	// Pista pronta pro proximo carrinho
-	sem_post(&loading_area[next(id)]);
-
-	// UHUUU
-	run(id);
-
-	sem_wait(&unloading_area[id]);
-
-	//printf("(c3) car_thread %d unloading\n", id);
-	unload(id);
-	car[id].unboarding = 1;
-
-	// Fazendo os passageiros sairem
-	for (int i = 0; i < N_P_CAR; i++)
-	{
-		sem_post(&unboard_queue);
-	}
-
-	// Todo mundo saiu?
-	sem_wait(&all_ashore);
-	car[id].unboarding = 0;
-
-	// Pista pronta pro proximo carrinho
-	sem_post(&unloading_area[next(id)]);
-
-	transfer(id);
 
 	return NULL;
 }
@@ -313,50 +315,53 @@ void* passenger_thread(void* v)
 {
 	int id = *(int *) v;
 
-	//printf("(p1) pass_thread %d waiting on board_queue\n", id);
-	printFila(id);
-	sem_wait(&board_queue);
+	while(1){
+		//printf("(p1) pass_thread %d waiting on board_queue\n", id);
+		printFila(id);
+		sem_wait(&board_queue);
 
-	//printf("(p2) pass_thread %d boarding\n", id);
-	board2(id);
-	board(id);
+		//printf("(p2) pass_thread %d boarding\n", id);
+		board2(id);
+		board(id);
 
-	//		Prende o mutex_1 para verificar se este eh o ultimo passageiro
-	//	a entrar no carrinho sem que 2 facam ao mesmo tempo
-	sem_wait(&mutex_1);
+		//		Prende o mutex_1 para verificar se este eh o ultimo passageiro
+		//	a entrar no carrinho sem que 2 facam ao mesmo tempo
+		sem_wait(&mutex_1);
 
-	boarders++;
+		boarders++;
 
-	if(boarders == N_P_CAR)
-	{
-		//printf("(p nice) All threads aboard!\n\n");
-		sem_post(&all_aboard);
-		boarders = 0;
+		if(boarders == N_P_CAR)
+		{
+			//printf("(p nice) All threads aboard!\n\n");
+			sem_post(&all_aboard);
+			boarders = 0;
+		}
+		// solta o mutex
+		sem_post(&mutex_1);
+
+		sem_wait(&unboard_queue);
+
+		//printf("(p3) pass_thread %d unboarding\n", id);
+		unboard2(id);
+		unboard(id);
+
+		//		Prende o mutex_2 para verificar se este eh o ultimo passageiro
+		//	a sair do carrinho sem que 2 facam ao mesmo tempo
+		sem_wait(&mutex_2);
+
+		unboarders++;
+		if(unboarders == N_P_CAR)
+		{
+			//printf("(p oh no) All threads ashore!\n\n");
+			sem_post(&all_ashore);
+			unboarders = 0;
+		}
+		// solta o mutex
+		sem_post(&mutex_2);
+
+		leave(id);
+
 	}
-	// solta o mutex
-	sem_post(&mutex_1);
-
-	sem_wait(&unboard_queue);
-
-	//printf("(p3) pass_thread %d unboarding\n", id);
-	unboard2(id);
-	unboard(id);
-
-	//		Prende o mutex_2 para verificar se este eh o ultimo passageiro
-	//	a sair do carrinho sem que 2 facam ao mesmo tempo
-	sem_wait(&mutex_2);
-
-	unboarders++;
-	if(unboarders == N_P_CAR)
-	{
-		//printf("(p oh no) All threads ashore!\n\n");
-		sem_post(&all_ashore);
-		unboarders = 0;
-	}
-	// solta o mutex
-	sem_post(&mutex_2);
-
-	leave(id);
 
 	return NULL;
 }
