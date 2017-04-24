@@ -20,9 +20,16 @@ subsequent carloads.*/
 #include <unistd.h>
 #include "interface.h"
 
+//Migué para teste by:Helu
+#define L1 9
+#define L2 18
+#define EMB2 getmaxx(stdscr)/2-5
+#define DES2 getmaxx(stdscr)/2-6
+//Migué para teste by:Helu
+
 #define N_PASSENGERS 20	// Numero de passageiros
-#define N_P_CAR 5				// Numero de passageiros por carrinho
-#define N_CARS 3				// Numero de carrinhos
+#define N_P_CAR 4				// Numero de passageiros por carrinho
+#define N_CARS 5				// Numero de carrinhos
 #define L_CARRO (N_P_CAR+N_P_CAR%2)
 #define P_EMBARQUE EMB+L_CARRO
 #define P_DESEMBARQUE DES+L_CARRO
@@ -41,11 +48,87 @@ sem_t sem_line;
 
 carrinho car[N_CARS];
 
+volatile int refreshers;
+volatile int writing;
+
 int boarders;
 int unboarders;
 
+void refreshAll()
+{
+	while(1){
+		usleep(TEMPO);
+		if(refreshers){
+			while(refreshers);
+			return;
+		}
+		else if(!refreshers){
+			refreshers = 1;
+			while(writing){
+				sem_wait(&sem_write);
+				sem_post(&sem_write);
+				usleep(TEMPO);
+			}
+			move(0,0);
+			refresh();
+			refreshers = 0;
+			return;
+		}
+	}
+}
+//Funcao que desenha as threads na fila de espera da montanha russa
+
+void printFila(int id)
+{
+  sem_wait(&sem_write); //Trocar mutex_3 pelo nome do semaforo que esta sendo utilizado para desenhar a animacao
+	writing++;
+  move(L1-2, EMB2+(3*id)); //L1 é a linha em que se encontra o trilho. É importante definir para cada trilho.
+                          //EMB eh a coluna base onde se encontra a primeira letra do terminal de EMBARQUE
+  printw("%d", id);
+  sem_post(&sem_write);
+	writing--;
+	refreshAll();
+}
+
+//Funcao que faz as threads sairem da fila e entrarem no brinquedo
+void board2(int id)
+{
+  sem_wait(&sem_write);
+	writing++;
+  move(L1-2, EMB2+(3*id));
+  printw("  ");
+  sem_post(&sem_write);
+	writing--;
+	refreshAll();
+}
+
+//Funcao que faz as threads sairem do brinquedo para o terminal de DESEMBARQUE
+void unboard2(int id)
+{
+  sem_wait(&sem_write);
+	writing++;
+  move(L2-2, DES2+(3*id)); //DES eh a coluna base onde se encontra a primeira letra do terminal de DESEMBARQUE
+  printw("%d", id);
+  sem_post(&sem_write);
+	writing--;
+	refreshAll();
+}
+
+//Funcao que faz as threads sairem do terminal de DESEMBARQUE
+void leave(int id)
+{
+  sem_wait(&sem_write);
+	writing++;
+  move(L2-2, DES2+(3*id));
+  printw("  ");
+  sem_post(&sem_write);
+	writing--;
+	refreshAll();
+}
+
 //Retorna o id do carrinho que está embarcando
-int boardCar(){
+int boardCar()
+{
 	for (int i=0; i<N_CARS;i++){
 		if (car[i].boarding)
 			return i;
@@ -54,7 +137,8 @@ int boardCar(){
 }
 
 //Retorna o id do carrinho que está desembarcando
-int unboardCar(){
+int unboardCar()
+{
 	for (int i=0; i<N_CARS;i++){
 		if (car[i].unboarding)
 			return i;
@@ -65,13 +149,13 @@ int unboardCar(){
 // Essa funcao representa o carrinho correndo
 void run(int id)
 {
-	for (int i=P_EMBARQUE; i<getmaxx(stdscr)+L_CARRO; i++){
+	for (int i=P_EMBARQUE; i<getmaxx(stdscr)+L_CARRO+2; i++){
 		sem_wait(&sem_write);
-		printRail();
+		writing++;
 		printCar(LE, i, L_CARRO, &car[id]);
-		refresh();
-		usleep(TEMPO);
 		sem_post(&sem_write);
+		writing--;
+		refreshAll();
 	}
 }
 
@@ -80,11 +164,11 @@ void load(int id)
 {
 	for (int i=0; i<P_EMBARQUE; i++){
 		sem_wait(&sem_write);
-		printRail();
+		writing++;
 		printCar(LE, i, L_CARRO, &car[id]);
-		refresh();
-		usleep(TEMPO);
 		sem_post(&sem_write);
+		writing--;
+		refreshAll();
 	}
 }
 
@@ -94,11 +178,11 @@ void unload(int id)
 {
 	for (int i=0; i<P_DESEMBARQUE; i++){
 		sem_wait(&sem_write);
-		printRail();
+		writing++;
 		printCar(LD, i, L_CARRO, &car[id]);
-		refresh();
-		usleep(TEMPO);
 		sem_post(&sem_write);
+		writing--;
+		refreshAll();
 	}
 }
 
@@ -106,13 +190,13 @@ void unload(int id)
 // (em um problema real poderia fazer algum processamento aqui)
 void transfer(int id)
 {
-	for (int i=P_DESEMBARQUE; i<getmaxx(stdscr)+L_CARRO; i++){
+	for (int i=P_DESEMBARQUE; i<getmaxx(stdscr)+L_CARRO+2; i++){
 		sem_wait(&sem_write);
-		printRail();
+		writing++;
 		printCar(LD, i, L_CARRO, &car[id]);
-		refresh();
-		usleep(TEMPO);
 		sem_post(&sem_write);
+		writing--;
+		refreshAll();
 	}
 }
 // Essa funcao representa o passageiro entrando no carrinho
@@ -135,12 +219,13 @@ void board(int id)
 	}
 	sem_post(&sem_line);
 
+	sleep(1);
 	sem_wait(&sem_write);
-	printRail();
-	printCar(LE, P_EMBARQUE+L_CARRO, L_CARRO, &car[carro]);
-	refresh();
-	usleep(TEMPO);
+	writing++;
+	printCar(LE, P_EMBARQUE, L_CARRO, &car[carro]);
 	sem_post(&sem_write);
+	writing--;
+	refreshAll();
 }
 
 // Essa funcao representa o passageiro saindo do carrinho
@@ -161,12 +246,13 @@ void unboard(int id)
 		}
 	}
 	sem_post(&sem_line);
+
 	sem_wait(&sem_write);
-	printRail();
-	printCar(LD, P_DESEMBARQUE+L_CARRO, L_CARRO, &car[carro]);
-	refresh();
-	usleep(TEMPO);
+	writing++;
+	printCar(LD, P_DESEMBARQUE, L_CARRO, &car[carro]);
 	sem_post(&sem_write);
+	writing--;
+	refreshAll();
 }
 
 //Retorna o id do próximo carrinho em relaçao ao atual
@@ -228,9 +314,11 @@ void* passenger_thread(void* v)
 	int id = *(int *) v;
 
 	//printf("(p1) pass_thread %d waiting on board_queue\n", id);
+	printFila(id);
 	sem_wait(&board_queue);
 
 	//printf("(p2) pass_thread %d boarding\n", id);
+	board2(id);
 	board(id);
 
 	//		Prende o mutex_1 para verificar se este eh o ultimo passageiro
@@ -251,6 +339,7 @@ void* passenger_thread(void* v)
 	sem_wait(&unboard_queue);
 
 	//printf("(p3) pass_thread %d unboarding\n", id);
+	unboard2(id);
 	unboard(id);
 
 	//		Prende o mutex_2 para verificar se este eh o ultimo passageiro
@@ -266,6 +355,8 @@ void* passenger_thread(void* v)
 	}
 	// solta o mutex
 	sem_post(&mutex_2);
+
+	leave(id);
 
 	return NULL;
 }
@@ -293,6 +384,8 @@ int main()
 
 	sem_init(&sem_line,0,1);
 
+	refreshers = 0;
+	writing = 0;
 	// Inicializando o numero de passageiros entrando e saindo
 	boarders = 0;
 	unboarders = 0;
@@ -369,7 +462,6 @@ int main()
 	endwin();
 	/*Ta dando erro, não sei porque:
 	"request for member ‘passageiros’ in something not a structure or union"
-
 	for (i=0; i<N_CARS;i++){
 		free(car[i].passageiros);
 	}*/
