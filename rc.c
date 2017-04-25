@@ -21,16 +21,16 @@ subsequent carloads.*/
 #include "interface.h"
 
 //Migué para teste by:Helu
-#define L1 9
-#define L2 18
-#define EMB2 getmaxx(stdscr)/2-5
-#define DES2 getmaxx(stdscr)/2-6
+//#define L1 9
+//#define L2 18
+//#define EMB2 getmaxx(stdscr)/2-5
+//#define DES2 getmaxx(stdscr)/2-6
 //Migué para teste by:Helu
 
-#define N_PASSENGERS 15	// Numero de passageiros
-#define N_P_CAR 5				// Numero de passageiros por carrinho
-#define N_CARS 3				// Numero de carrinhos
-#define L_CARRO (N_P_CAR+N_P_CAR%2)
+#define N_PASSENGERS 20	// Numero de passageiros
+#define N_P_CAR 6				// Numero de passageiros por carrinho
+#define N_CARS 4				// Numero de carrinhos
+#define L_CARRO (N_P_CAR+N_P_CAR%2)		//y = 1/5*x + 12/5
 #define P_EMBARQUE EMB+L_CARRO
 #define P_DESEMBARQUE DES+L_CARRO
 #define TEMPO 100000
@@ -48,59 +48,88 @@ sem_t sem_line;
 
 carrinho car[N_CARS];
 
+volatile int refreshers;
+volatile int writing;
+
 int boarders;
 int unboarders;
 
+void refreshAll()
+{
+	while(1){
+		usleep(TEMPO);
+		if(refreshers){
+			while(refreshers);
+			return;
+		}
+		else if(!refreshers){
+			refreshers = 1;
+			while(writing){
+				sem_wait(&sem_write);
+				sem_post(&sem_write);
+				usleep(TEMPO);
+			}
+      sem_wait(&sem_write);
+			refresh();
+      sem_post(&sem_write);
+			refreshers = 0;
+			return;
+		}
+	}
+}
 //Funcao que desenha as threads na fila de espera da montanha russa
-void printFila(int id){
+
+void printFila(int id)
+{
   sem_wait(&sem_write); //Trocar mutex_3 pelo nome do semaforo que esta sendo utilizado para desenhar a animacao
-  move(L1-2, EMB2+(3*id)); //L1 é a linha em que se encontra o trilho. É importante definir para cada trilho.
+	writing++;
+  move(LE-2, 3*id); //L1 é a linha em que se encontra o trilho. É importante definir para cada trilho.
                           //EMB eh a coluna base onde se encontra a primeira letra do terminal de EMBARQUE
   printw("%d", id);
-  usleep(TEMPO);
-  move(0,0);
-  refresh();
   sem_post(&sem_write);
+	writing--;
+	refreshAll();
 }
 
 //Funcao que faz as threads sairem da fila e entrarem no brinquedo
 void board2(int id)
 {
   sem_wait(&sem_write);
-  move(L1-2, EMB2+(3*id));
+	writing++;
+  move(LE-2, 3*id);
   printw("  ");
-  usleep(TEMPO);
-  move(0,0);
-  refresh();
   sem_post(&sem_write);
+	writing--;
+	refreshAll();
 }
 
 //Funcao que faz as threads sairem do brinquedo para o terminal de DESEMBARQUE
 void unboard2(int id)
 {
   sem_wait(&sem_write);
-  move(L2-2, DES2+(3*id)); //DES eh a coluna base onde se encontra a primeira letra do terminal de DESEMBARQUE
+	writing++;
+  move(LD-2, 3*id); //DES eh a coluna base onde se encontra a primeira letra do terminal de DESEMBARQUE
   printw("%d", id);
-  usleep(TEMPO);
-  move(0,0);
-  refresh();
   sem_post(&sem_write);
+	writing--;
+	refreshAll();
 }
 
 //Funcao que faz as threads sairem do terminal de DESEMBARQUE
-void leave(int id){
+void leave(int id)
+{
   sem_wait(&sem_write);
-  move(L2-2, DES2+(3*id));
+	writing++;
+  move(LD-2, 3*id);
   printw("  ");
-  usleep(TEMPO);
-  move(0,0);
-  refresh();
   sem_post(&sem_write);
+	writing--;
+	refreshAll();
 }
 
-
 //Retorna o id do carrinho que está embarcando
-int boardCar(){
+int boardCar()
+{
 	for (int i=0; i<N_CARS;i++){
 		if (car[i].boarding)
 			return i;
@@ -109,7 +138,8 @@ int boardCar(){
 }
 
 //Retorna o id do carrinho que está desembarcando
-int unboardCar(){
+int unboardCar()
+{
 	for (int i=0; i<N_CARS;i++){
 		if (car[i].unboarding)
 			return i;
@@ -120,13 +150,13 @@ int unboardCar(){
 // Essa funcao representa o carrinho correndo
 void run(int id)
 {
-	for (int i=P_EMBARQUE; i<getmaxx(stdscr)+L_CARRO; i++){
+	for (int i=P_EMBARQUE; i<getmaxx(stdscr)+L_CARRO+2; i++){
 		sem_wait(&sem_write);
-		printRail();
+		writing++;
 		printCar(LE, i, L_CARRO, &car[id]);
-		refresh();
-		usleep(TEMPO);
 		sem_post(&sem_write);
+		writing--;
+		refreshAll();
 	}
 }
 
@@ -135,11 +165,11 @@ void load(int id)
 {
 	for (int i=0; i<P_EMBARQUE; i++){
 		sem_wait(&sem_write);
-		printRail();
+		writing++;
 		printCar(LE, i, L_CARRO, &car[id]);
-		refresh();
-		usleep(TEMPO);
 		sem_post(&sem_write);
+		writing--;
+		refreshAll();
 	}
 }
 
@@ -149,11 +179,11 @@ void unload(int id)
 {
 	for (int i=0; i<P_DESEMBARQUE; i++){
 		sem_wait(&sem_write);
-		printRail();
+		writing++;
 		printCar(LD, i, L_CARRO, &car[id]);
-		refresh();
-		usleep(TEMPO);
 		sem_post(&sem_write);
+		writing--;
+		refreshAll();
 	}
 }
 
@@ -161,13 +191,13 @@ void unload(int id)
 // (em um problema real poderia fazer algum processamento aqui)
 void transfer(int id)
 {
-	for (int i=P_DESEMBARQUE; i<getmaxx(stdscr)+L_CARRO; i++){
+	for (int i=P_DESEMBARQUE; i<getmaxx(stdscr)+L_CARRO+2; i++){
 		sem_wait(&sem_write);
-		printRail();
+		writing++;
 		printCar(LD, i, L_CARRO, &car[id]);
-		refresh();
-		usleep(TEMPO);
 		sem_post(&sem_write);
+		writing--;
+		refreshAll();
 	}
 }
 // Essa funcao representa o passageiro entrando no carrinho
@@ -190,12 +220,13 @@ void board(int id)
 	}
 	sem_post(&sem_line);
 
+	sleep(1);
 	sem_wait(&sem_write);
-	printRail();
-	printCar(LE, P_EMBARQUE+L_CARRO, L_CARRO, &car[carro]);
-	refresh();
-	usleep(TEMPO);
+	writing++;
+	printCar(LE, P_EMBARQUE, L_CARRO, &car[carro]);
 	sem_post(&sem_write);
+	writing--;
+	refreshAll();
 }
 
 // Essa funcao representa o passageiro saindo do carrinho
@@ -216,12 +247,13 @@ void unboard(int id)
 		}
 	}
 	sem_post(&sem_line);
+
 	sem_wait(&sem_write);
-	printRail();
-	printCar(LD, P_DESEMBARQUE+L_CARRO, L_CARRO, &car[carro]);
-	refresh();
-	usleep(TEMPO);
+	writing++;
+	printCar(LD, P_DESEMBARQUE, L_CARRO, &car[carro]);
 	sem_post(&sem_write);
+	writing--;
+	refreshAll();
 }
 
 //Retorna o id do próximo carrinho em relaçao ao atual
@@ -232,48 +264,51 @@ int next(int id_atual)
 
 void* car_thread(void* v)
 {
-	int id = *(int *) v;
+	while(1){
+		int id = *(int *) v;
 
-	sem_wait(&loading_area[id]);
+		sem_wait(&loading_area[id]);
 
-	load(id);
-	car[id].boarding = 1;
-	// Fazendo os passageiros entrarem
-	for (int i = 0; i < N_P_CAR; i++)
-	{
-		sem_post(&board_queue);
+		load(id);
+		car[id].boarding = 1;
+		// Fazendo os passageiros entrarem
+		for (int i = 0; i < N_P_CAR; i++)
+		{
+			sem_post(&board_queue);
+		}
+
+		// Todo mundo entrou?
+		sem_wait(&all_aboard);
+		car[id].boarding = 0;
+
+		// Pista pronta pro proximo carrinho
+		sem_post(&loading_area[next(id)]);
+
+		// UHUUU
+		run(id);
+
+		sem_wait(&unloading_area[id]);
+
+		//printf("(c3) car_thread %d unloading\n", id);
+		unload(id);
+		car[id].unboarding = 1;
+
+		// Fazendo os passageiros sairem
+		for (int i = 0; i < N_P_CAR; i++)
+		{
+			sem_post(&unboard_queue);
+		}
+
+		// Todo mundo saiu?
+		sem_wait(&all_ashore);
+		car[id].unboarding = 0;
+
+		// Pista pronta pro proximo carrinho
+		sem_post(&unloading_area[next(id)]);
+
+		transfer(id);
+
 	}
-
-	// Todo mundo entrou?
-	sem_wait(&all_aboard);
-	car[id].boarding = 0;
-
-	// Pista pronta pro proximo carrinho
-	sem_post(&loading_area[next(id)]);
-
-	// UHUUU
-	run(id);
-
-	sem_wait(&unloading_area[id]);
-
-	//printf("(c3) car_thread %d unloading\n", id);
-	unload(id);
-	car[id].unboarding = 1;
-
-	// Fazendo os passageiros sairem
-	for (int i = 0; i < N_P_CAR; i++)
-	{
-		sem_post(&unboard_queue);
-	}
-
-	// Todo mundo saiu?
-	sem_wait(&all_ashore);
-	car[id].unboarding = 0;
-
-	// Pista pronta pro proximo carrinho
-	sem_post(&unloading_area[next(id)]);
-
-	transfer(id);
 
 	return NULL;
 }
@@ -282,50 +317,53 @@ void* passenger_thread(void* v)
 {
 	int id = *(int *) v;
 
-	//printf("(p1) pass_thread %d waiting on board_queue\n", id);
-	printFila(id);
-	sem_wait(&board_queue);
+	while(1){
+		//printf("(p1) pass_thread %d waiting on board_queue\n", id);
+		printFila(id);
+		sem_wait(&board_queue);
 
-	//printf("(p2) pass_thread %d boarding\n", id);
-	board2(id);
-	board(id);
+		//printf("(p2) pass_thread %d boarding\n", id);
+		board2(id);
+		board(id);
 
-	//		Prende o mutex_1 para verificar se este eh o ultimo passageiro
-	//	a entrar no carrinho sem que 2 facam ao mesmo tempo
-	sem_wait(&mutex_1);
+		//		Prende o mutex_1 para verificar se este eh o ultimo passageiro
+		//	a entrar no carrinho sem que 2 facam ao mesmo tempo
+		sem_wait(&mutex_1);
 
-	boarders++;
+		boarders++;
 
-	if(boarders == N_P_CAR)
-	{
-		//printf("(p nice) All threads aboard!\n\n");
-		sem_post(&all_aboard);
-		boarders = 0;
+		if(boarders == N_P_CAR)
+		{
+			//printf("(p nice) All threads aboard!\n\n");
+			sem_post(&all_aboard);
+			boarders = 0;
+		}
+		// solta o mutex
+		sem_post(&mutex_1);
+
+		sem_wait(&unboard_queue);
+
+		//printf("(p3) pass_thread %d unboarding\n", id);
+		unboard2(id);
+		unboard(id);
+
+		//		Prende o mutex_2 para verificar se este eh o ultimo passageiro
+		//	a sair do carrinho sem que 2 facam ao mesmo tempo
+		sem_wait(&mutex_2);
+
+		unboarders++;
+		if(unboarders == N_P_CAR)
+		{
+			//printf("(p oh no) All threads ashore!\n\n");
+			sem_post(&all_ashore);
+			unboarders = 0;
+		}
+		// solta o mutex
+		sem_post(&mutex_2);
+
+		leave(id);
+
 	}
-	// solta o mutex
-	sem_post(&mutex_1);
-
-	sem_wait(&unboard_queue);
-
-	//printf("(p3) pass_thread %d unboarding\n", id);
-	unboard2(id);
-	unboard(id);
-
-	//		Prende o mutex_2 para verificar se este eh o ultimo passageiro
-	//	a sair do carrinho sem que 2 facam ao mesmo tempo
-	sem_wait(&mutex_2);
-
-	unboarders++;
-	if(unboarders == N_P_CAR)
-	{
-		//printf("(p oh no) All threads ashore!\n\n");
-		sem_post(&all_ashore);
-		unboarders = 0;
-	}
-	// solta o mutex
-	sem_post(&mutex_2);
-
-	leave(id);
 
 	return NULL;
 }
@@ -353,6 +391,8 @@ int main()
 
 	sem_init(&sem_line,0,1);
 
+	refreshers = 0;
+	writing = 0;
 	// Inicializando o numero de passageiros entrando e saindo
 	boarders = 0;
 	unboarders = 0;
@@ -386,6 +426,7 @@ int main()
   // Inicializando a tela
 	initscr();
 	noecho();
+  curs_set(0);
 	printTitulo();
 	printRail();
 	//
